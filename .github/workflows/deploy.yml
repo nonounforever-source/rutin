@@ -9,6 +9,9 @@ jobs:
   build-and-deploy:
     name: Build iOS & Upload to TestFlight
     runs-on: macos-14
+    defaults:
+      run:
+        working-directory: app_ios
 
     steps:
       # ─── 1. Checkout ───────────────────────────────────────────────────────
