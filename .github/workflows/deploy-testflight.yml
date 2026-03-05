@@ -21,9 +21,11 @@ jobs:
 
       - name: 📦 Install Dependencies
         working-directory: app_ios
-        run: |
-          npm install
-          npm install @capacitor/ios
+        run: npm install --legacy-peer-deps
+
+      - name: 📱 Install Capacitor iOS
+        working-directory: app_ios
+        run: npm install @capacitor/ios --legacy-peer-deps
 
       - name: 🔨 Build Web App
         working-directory: app_ios
