@@ -334,7 +334,7 @@ function Editor({ initialData, initialContent, onClose, onSave, onDelete }: {
       exit={{ y: "100%" }}
       transition={{ type: "spring", damping: 25, stiffness: 300 }}
       className={cn(
-        "w-full max-w-3xl h-[90vh] sm:h-[85vh] flex flex-col rounded-t-[2rem] sm:rounded-[2rem] shadow-2xl overflow-hidden transition-colors relative z-10",
+  "w-full max-w-3xl h-[85dvh] sm:h-[85vh] flex flex-col rounded-t-[2rem] shadow-2xl overflow-hidden transition-colors relative z-10",
         activeColor.bg === "bg-card" ? "bg-secondary/95 backdrop-blur-xl" : activeColor.bg
       )}
       onClick={(e) => e.stopPropagation()}
@@ -406,7 +406,7 @@ function Editor({ initialData, initialContent, onClose, onSave, onDelete }: {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto flex flex-col p-6 pt-2">
+      <div className="flex-1 overflow-y-auto flex flex-col p-6 pt-2" style={{WebkitOverflowScrolling: 'touch'}}>
         {/* Cover Image Preview */}
         {coverImage && (
           <div className="relative h-48 sm:h-64 shrink-0 group rounded-2xl overflow-hidden mb-6 border border-border/20">
