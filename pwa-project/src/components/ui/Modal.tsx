@@ -77,7 +77,7 @@ export function Modal({ isOpen, onClose, title, children, className }: ModalProp
             </div>
             <div
               ref={scrollRef}
-              className="overflow-y-auto px-6 pb-8"
+             className="overflow-y-auto px-6 pb-8 modal-content"
               style={{ overscrollBehavior: "contain" }}
             >
               {children}
