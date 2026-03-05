@@ -1,0 +1,86 @@
+name: 🔨 Build IPA
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: ⚙️ Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 🔍 Find project directory
+        run: |
+          DIR=$(find . -name "package.json" -not -path "*/node_modules/*" | head -1 | xargs dirname)
+          echo "PROJECT_DIR=$DIR" >> $GITHUB_ENV
+          echo "Found: $DIR"
+
+      - name: 📦 Install Dependencies
+        run: |
+          cd $PROJECT_DIR
+          npm install --legacy-peer-deps
+
+      - name: 🔨 Build Web App
+        run: |
+          cd $PROJECT_DIR
+          npm run build
+
+      - name: 📱 Add iOS Platform
+        run: |
+          cd $PROJECT_DIR
+          npx cap add ios
+
+      - name: 🔧 Set iOS Deployment Target
+        run: |
+          PODFILE=$(find $PROJECT_DIR/ios -name "Podfile" | head -1)
+          sed -i '' "s/platform :ios, '.*'/platform :ios, '14.0'/" "$PODFILE"
+          echo "Podfile updated:"
+          head -3 "$PODFILE"
+
+      - name: 📱 Sync iOS
+        run: |
+          cd $PROJECT_DIR
+          npx cap sync ios
+
+      - name: 🔧 Install CocoaPods
+        run: |
+          cd $PROJECT_DIR/ios/App
+          pod install
+
+      - name: 🏗️ Build IPA
+        run: |
+          cd $PROJECT_DIR
+          xcodebuild \
+            -workspace ios/App/App.xcworkspace \
+            -scheme App \
+            -sdk iphoneos \
+            -configuration Release \
+            -archivePath $RUNNER_TEMP/App.xcarchive \
+            archive \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            IPHONEOS_DEPLOYMENT_TARGET=14.0
+
+          mkdir -p $RUNNER_TEMP/payload/Payload
+          cp -r "$RUNNER_TEMP/App.xcarchive/Products/Applications/App.app" \
+            "$RUNNER_TEMP/payload/Payload/App.app"
+          cd $RUNNER_TEMP/payload
+          zip -r App.ipa Payload
+
+      - name: 💾 حفظ IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: Routinely-IPA
+          path: ${{ runner.temp }}/payload/App.ipa
+          retention-days: 30
