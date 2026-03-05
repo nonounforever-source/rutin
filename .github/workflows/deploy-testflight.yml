@@ -21,7 +21,9 @@ jobs:
 
       - name: 📦 Install Dependencies
         working-directory: app_ios
-        run: npm install
+        run: |
+          npm install
+          npm install @capacitor/ios
 
       - name: 🔨 Build Web App
         working-directory: app_ios
