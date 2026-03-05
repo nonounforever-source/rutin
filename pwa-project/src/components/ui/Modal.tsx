@@ -12,19 +12,31 @@ interface ModalProps {
 }
 
 export function Modal({ isOpen, onClose, title, children, className }: ModalProps) {
+  const overlayRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = "hidden";
-      document.body.style.position = "fixed";
-      document.body.style.width = "100%";
-    } else {
-      document.body.style.overflow = "";
-      document.body.style.position = "";
-      document.body.style.width = "";
-    }
+    if (!isOpen) return;
+
+    const overlay = overlayRef.current;
+    const scrollEl = scrollRef.current;
+
+    // منع تحرك الخلفية نهائياً
+    const preventTouch = (e: TouchEvent) => e.preventDefault();
+
+    // السماح بالسحب داخل المحتوى فقط
+    const allowScroll = (e: TouchEvent) => e.stopPropagation();
+
+    overlay?.addEventListener("touchmove", preventTouch, { passive: false });
+    scrollEl?.addEventListener("touchmove", allowScroll, { passive: true });
+
+    document.body.style.overflow = "hidden";
+    document.body.style.position = "fixed";
+    document.body.style.width = "100%";
+
     return () => {
+      overlay?.removeEventListener("touchmove", preventTouch);
+      scrollEl?.removeEventListener("touchmove", allowScroll);
       document.body.style.overflow = "";
       document.body.style.position = "";
       document.body.style.width = "";
@@ -36,6 +48,7 @@ export function Modal({ isOpen, onClose, title, children, className }: ModalProp
       {isOpen && (
         <>
           <motion.div
+            ref={overlayRef}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -52,7 +65,6 @@ export function Modal({ isOpen, onClose, title, children, className }: ModalProp
               className
             )}
             onClick={(e) => e.stopPropagation()}
-            onTouchMove={(e) => e.stopPropagation()}
           >
             <div className="mb-4 flex items-center justify-between px-6 pt-6 shrink-0">
               <h2 className="text-xl font-bold text-foreground">{title}</h2>
@@ -66,11 +78,7 @@ export function Modal({ isOpen, onClose, title, children, className }: ModalProp
             <div
               ref={scrollRef}
               className="overflow-y-auto px-6 pb-8"
-              style={{ 
-                WebkitOverflowScrolling: "touch",
-                overscrollBehavior: "contain"
-              }}
-              onTouchMove={(e) => e.stopPropagation()}
+              style={{ overscrollBehavior: "contain" }}
             >
               {children}
             </div>
