@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
-import { ReactNode } from "react";
+import { ReactNode, useEffect } from "react";
 import { cn } from "@/lib/utils";
 
 interface ModalProps {
@@ -12,6 +12,15 @@ interface ModalProps {
 }
 
 export function Modal({ isOpen, onClose, title, children, className }: ModalProps) {
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => { document.body.style.overflow = ""; };
+  }, [isOpen]);
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -29,17 +38,26 @@ export function Modal({ isOpen, onClose, title, children, className }: ModalProp
             exit={{ y: "100%" }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
             className={cn(
-              "fixed bottom-0 left-0 right-0 z-50 max-h-[90vh] overflow-y-auto rounded-t-[2rem] border-t border-white/10 bg-[#1a1a1a] p-6 shadow-2xl dark:bg-[#1a1a1a] bg-white text-slate-900 dark:text-white",
+              "fixed bottom-0 left-0 right-0 z-50 max-h-[90dvh] rounded-t-[2rem] border-t border-border shadow-2xl bg-card text-card-foreground flex flex-col",
               className
             )}
+            onClick={(e) => e.stopPropagation()}
           >
-            <div className="mb-6 flex items-center justify-between">
-              <h2 className="text-xl font-bold">{title}</h2>
-              <button onClick={onClose} className="rounded-full bg-white/10 p-2 hover:bg-white/20">
+            <div className="mb-4 flex items-center justify-between px-6 pt-6 shrink-0">
+              <h2 className="text-xl font-bold text-foreground">{title}</h2>
+              <button
+                onClick={onClose}
+                className="rounded-full bg-secondary p-2 hover:bg-secondary/80 text-foreground"
+              >
                 <X size={20} />
               </button>
             </div>
-            {children}
+            <div
+              className="overflow-y-auto px-6 pb-8"
+              style={{ WebkitOverflowScrolling: "touch" }}
+            >
+              {children}
+            </div>
           </motion.div>
         </>
       )}
