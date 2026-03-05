@@ -40,22 +40,34 @@ jobs:
           cd $PROJECT_DIR
           npx cap add ios
 
-      - name: 🔧 Set iOS Deployment Target
+      - name: 🔧 Fix iOS Deployment Target in ALL config files
         run: |
-          PODFILE=$(find $PROJECT_DIR/ios -name "Podfile" | head -1)
-          sed -i '' "s/platform :ios, '.*'/platform :ios, '14.0'/" "$PODFILE"
-          echo "Podfile updated:"
+          cd $PROJECT_DIR
+
+          # 1. تعديل Podfile
+          PODFILE="ios/App/Podfile"
+          if grep -q "platform :ios" "$PODFILE"; then
+            sed -i '' "s/platform :ios, '.*'/platform :ios, '14.0'/" "$PODFILE"
+          else
+            sed -i '' '1s/^/platform :ios, '"'"'14.0'"'"'\n/' "$PODFILE"
+          fi
+          echo "✅ Podfile:"
           head -3 "$PODFILE"
+
+          # 2. تعديل project.pbxproj
+          PBXPROJ="ios/App/App.xcodeproj/project.pbxproj"
+          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*/IPHONEOS_DEPLOYMENT_TARGET = 14.0/g' "$PBXPROJ"
+          echo "✅ pbxproj updated"
 
       - name: 📱 Sync iOS
         run: |
           cd $PROJECT_DIR
-          npx cap sync ios
+          npx cap sync ios --no-build
 
       - name: 🔧 Install CocoaPods
         run: |
           cd $PROJECT_DIR/ios/App
-          pod install
+          pod install --repo-update
 
       - name: 🏗️ Build IPA
         run: |
