@@ -1,0 +1,72 @@
+name: 🔨 Build IPA
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: ⚙️ Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 🔍 Find project directory
+        run: find . -name "package.json" -not -path "*/node_modules/*" | head -5
+
+      - name: 📦 Install Dependencies
+        run: |
+          cd $(find . -name "package.json" -not -path "*/node_modules/*" | head -1 | xargs dirname)
+          npm install --legacy-peer-deps
+          npm install react-is @capacitor/ios --legacy-peer-deps
+
+      - name: 🔨 Build Web App
+        run: |
+          cd $(find . -name "package.json" -not -path "*/node_modules/*" | head -1 | xargs dirname)
+          npm run build
+
+      - name: 📱 Add iOS Platform
+        run: |
+          cd $(find . -name "package.json" -not -path "*/node_modules/*" | head -1 | xargs dirname)
+          npx cap add ios
+          npx cap sync ios
+
+      - name: 🔧 Install CocoaPods
+        run: |
+          cd $(find . -name "App.xcworkspace" -not -path "*/node_modules/*" | head -1 | xargs dirname)
+          pod install
+
+      - name: 🏗️ Build IPA
+        run: |
+          WORKSPACE=$(find . -name "App.xcworkspace" | head -1)
+          xcodebuild \
+            -workspace "$WORKSPACE" \
+            -scheme App \
+            -sdk iphoneos \
+            -configuration Release \
+            -archivePath $RUNNER_TEMP/App.xcarchive \
+            archive \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+          mkdir -p $RUNNER_TEMP/payload/Payload
+          cp -r "$RUNNER_TEMP/App.xcarchive/Products/Applications/App.app" \
+            "$RUNNER_TEMP/payload/Payload/App.app"
+          cd $RUNNER_TEMP/payload
+          zip -r App.ipa Payload
+
+      - name: 💾 حفظ IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: Routinely-IPA
+          path: ${{ runner.temp }}/payload/App.ipa
+          retention-days: 30
