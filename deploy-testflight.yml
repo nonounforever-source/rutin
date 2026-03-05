@@ -19,59 +19,61 @@ jobs:
         with:
           node-version: '20'
 
-      - name: 🔍 Find project directory
-        run: |
-          DIR=$(find . -name "package.json" -not -path "*/node_modules/*" | head -1 | xargs dirname)
-          echo "PROJECT_DIR=$DIR" >> $GITHUB_ENV
-          echo "Found: $DIR"
-
       - name: 📦 Install Dependencies
         run: |
-          cd $PROJECT_DIR
+          PKG=$(find . -name "package.json" -not -path "*/node_modules/*" | head -1)
+          DIR=$(dirname "$PKG")
+          echo "📁 Project found at: $DIR"
+          cd "$DIR"
           npm install --legacy-peer-deps
 
       - name: 🔨 Build Web App
         run: |
-          cd $PROJECT_DIR
+          PKG=$(find . -name "package.json" -not -path "*/node_modules/*" | head -1)
+          DIR=$(dirname "$PKG")
+          cd "$DIR"
           npm run build
 
       - name: 📱 Add iOS Platform
         run: |
-          cd $PROJECT_DIR
+          PKG=$(find . -name "package.json" -not -path "*/node_modules/*" | head -1)
+          DIR=$(dirname "$PKG")
+          cd "$DIR"
           npx cap add ios
 
-      - name: 🔧 Fix iOS Deployment Target in ALL config files
+      - name: 🔧 Fix iOS Deployment Target
         run: |
-          cd $PROJECT_DIR
-
-          # 1. تعديل Podfile
-          PODFILE="ios/App/Podfile"
-          if grep -q "platform :ios" "$PODFILE"; then
-            sed -i '' "s/platform :ios, '.*'/platform :ios, '14.0'/" "$PODFILE"
-          else
-            sed -i '' '1s/^/platform :ios, '"'"'14.0'"'"'\n/' "$PODFILE"
-          fi
+          PKG=$(find . -name "package.json" -not -path "*/node_modules/*" | head -1)
+          DIR=$(dirname "$PKG")
+          PODFILE="$DIR/ios/App/Podfile"
+          sed -i '' "s/platform :ios, '.*'/platform :ios, '14.0'/" "$PODFILE" 2>/dev/null || \
+          sed -i "s/platform :ios, '.*'/platform :ios, '14.0'/" "$PODFILE"
           echo "✅ Podfile:"
           head -3 "$PODFILE"
-
-          # 2. تعديل project.pbxproj
-          PBXPROJ="ios/App/App.xcodeproj/project.pbxproj"
-          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*/IPHONEOS_DEPLOYMENT_TARGET = 14.0/g' "$PBXPROJ"
+          PBXPROJ="$DIR/ios/App/App.xcodeproj/project.pbxproj"
+          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*/IPHONEOS_DEPLOYMENT_TARGET = 14.0/g' "$PBXPROJ" 2>/dev/null || \
+          sed -i 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*/IPHONEOS_DEPLOYMENT_TARGET = 14.0/g' "$PBXPROJ"
           echo "✅ pbxproj updated"
 
       - name: 📱 Sync iOS
         run: |
-          cd $PROJECT_DIR
+          PKG=$(find . -name "package.json" -not -path "*/node_modules/*" | head -1)
+          DIR=$(dirname "$PKG")
+          cd "$DIR"
           npx cap sync ios --no-build
 
       - name: 🔧 Install CocoaPods
         run: |
-          cd $PROJECT_DIR/ios/App
+          PKG=$(find . -name "package.json" -not -path "*/node_modules/*" | head -1)
+          DIR=$(dirname "$PKG")
+          cd "$DIR/ios/App"
           pod install --repo-update
 
       - name: 🏗️ Build IPA
         run: |
-          cd $PROJECT_DIR
+          PKG=$(find . -name "package.json" -not -path "*/node_modules/*" | head -1)
+          DIR=$(dirname "$PKG")
+          cd "$DIR"
           xcodebuild \
             -workspace ios/App/App.xcworkspace \
             -scheme App \
@@ -83,7 +85,6 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
             IPHONEOS_DEPLOYMENT_TARGET=14.0
-
           mkdir -p $RUNNER_TEMP/payload/Payload
           cp -r "$RUNNER_TEMP/App.xcarchive/Products/Applications/App.app" \
             "$RUNNER_TEMP/payload/Payload/App.app"
