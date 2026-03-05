@@ -161,3 +161,14 @@
 body {
   overscroll-behavior: none;
 }
+/* iOS Modal Scroll Fix */
+.modal-overlay {
+  touch-action: none;
+  overscroll-behavior: none;
+}
+
+.modal-content {
+  touch-action: pan-y;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
