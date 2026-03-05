@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
-import { ReactNode, useEffect } from "react";
+import { ReactNode, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 
 interface ModalProps {
@@ -12,13 +12,23 @@ interface ModalProps {
 }
 
 export function Modal({ isOpen, onClose, title, children, className }: ModalProps) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = "hidden";
+      document.body.style.position = "fixed";
+      document.body.style.width = "100%";
     } else {
       document.body.style.overflow = "";
+      document.body.style.position = "";
+      document.body.style.width = "";
     }
-    return () => { document.body.style.overflow = ""; };
+    return () => {
+      document.body.style.overflow = "";
+      document.body.style.position = "";
+      document.body.style.width = "";
+    };
   }, [isOpen]);
 
   return (
@@ -42,6 +52,7 @@ export function Modal({ isOpen, onClose, title, children, className }: ModalProp
               className
             )}
             onClick={(e) => e.stopPropagation()}
+            onTouchMove={(e) => e.stopPropagation()}
           >
             <div className="mb-4 flex items-center justify-between px-6 pt-6 shrink-0">
               <h2 className="text-xl font-bold text-foreground">{title}</h2>
@@ -53,8 +64,13 @@ export function Modal({ isOpen, onClose, title, children, className }: ModalProp
               </button>
             </div>
             <div
+              ref={scrollRef}
               className="overflow-y-auto px-6 pb-8"
-              style={{ WebkitOverflowScrolling: "touch" }}
+              style={{ 
+                WebkitOverflowScrolling: "touch",
+                overscrollBehavior: "contain"
+              }}
+              onTouchMove={(e) => e.stopPropagation()}
             >
               {children}
             </div>
