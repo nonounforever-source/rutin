@@ -1,0 +1,50 @@
+.accessible {
+  background-color: #000;
+  color: #FFF;
+}
+
+.accessible h1, .accessible h2, .accessible h3 {
+  border-bottom: 2px solid #FFF;
+}
+
+.accessible a {
+  color: #FFD700;
+}
+
+@media (prefers-color-scheme: dark) {
+  .accessible {
+    background-color: #000;
+    color: #FFF;
+  }
+}
+
+.accessible button {
+  background-color: #FFD700;
+  color: #000;
+  border: none;
+  padding: 10px 20px;
+  cursor: pointer;
+}
+
+.accessible button:hover {
+  background-color: #FFF;
+  color: #000;
+}
+
+.accessible input {
+  background-color: #FFF;
+  color: #000;
+  border: 1px solid #000;
+  padding: 8px;
+}
+
+.accessible input:focus {
+  outline: 3px solid #FFD700;
+}
+
+@media (hover: none) {
+  .accessible button, .accessible input {
+    width: 100%;
+    padding: 16px;
+  }
+}
