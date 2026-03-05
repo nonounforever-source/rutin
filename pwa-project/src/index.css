@@ -144,3 +144,20 @@
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+/* iOS touch scroll fix */
+* {
+  -webkit-overflow-scrolling: touch;
+}
+
+[role="dialog"],
+.modal,
+.overflow-y-auto,
+.overflow-auto,
+.overflow-scroll {
+  -webkit-overflow-scrolling: touch;
+  overflow-y: auto;
+}
+
+body {
+  overscroll-behavior: none;
+}
