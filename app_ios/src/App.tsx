@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "motion/react";
 import { AppProvider, useApp } from "@/lib/store";
 import { BottomNav } from "@/components/BottomNav";
 import { HabitsPage } from "@/pages/Habits";
@@ -9,8 +9,10 @@ import { GoalsPage } from "@/pages/Goals";
 import { CalendarPage } from "@/pages/Calendar";
 import { OnboardingPage } from "@/pages/Onboarding";
 
+type Tab = "habits" | "quotes" | "journal" | "goals" | "calendar";
+
 function AppContent() {
-  const [activeTab, setActiveTab] = useState("habits");
+  const [activeTab, setActiveTab] = useState<Tab>("habits");
   const { settings } = useApp();
 
   if (settings.isFirstTime) {

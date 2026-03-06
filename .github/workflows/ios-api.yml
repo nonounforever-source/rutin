@@ -30,13 +30,11 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Lint / Type check - non-blocking
+      - name: Lint / Type check
         run: npm run lint
-        continue-on-error: true
 
-      - name: Build web assets - non-blocking
+      - name: Build web assets
         run: npm run build
-        continue-on-error: true
 
       - name: Sync Capacitor iOS project when platform exists
         shell: bash
