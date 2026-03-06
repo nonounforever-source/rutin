@@ -1,62 +1,63 @@
-name: Production CI/CD Pipeline
+name: iOS API App CI
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches:
+      - main
+      - master
   pull_request:
-    branches: [ "main", "master" ]
-  # Allows you to trigger the workflow manually from the Actions tab
-  workflow_dispatch:
 
 jobs:
-  build-and-test:
-    name: Build React Native/Capacitor Web Assets
-    runs-on: ubuntu-latest
-
-    # Sets the default folder for all 'run' steps to the nested iOS app directory.
-    # Adjust this to './project/app_ios' if 'project' is actually tracked in git.
+  build-and-verify:
+    name: Build, Lint, and Verify API configuration
+    runs-on: macos-latest
     defaults:
       run:
-        working-directory: ./app_ios
+        working-directory: app_ios
+
+    env:
+      API_BASE_URL: ${{ vars.API_BASE_URL }}
 
     steps:
-      - name: 📥 Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: ⚙️ Setup Node.js Environment
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20' # Use latest Long-Term Support (LTS) version
-          cache: 'npm'
-          
-          # =======================================================================
-          # CRITICAL USER REQUIREMENT FIX
-          # Resolves: "Error: Some specified paths were not resolved, unable to cache dependencies."
-          # Using a glob pattern ensures the lockfile is found even in nested monorepos.
-          # =======================================================================
-          cache-dependency-path: '**/package-lock.json'
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: app_ios/package-lock.json
 
-      - name: 📦 Install Dependencies
-        # npm ci is strictly better for CI environments than npm install.
-        # It relies entirely on the package-lock.json, wiping node_modules if needed.
+      - name: Install dependencies
         run: npm ci
 
-      - name: 🔍 Type Checking (TypeScript)
-        # Validates TypeScript without emitting compiled files
-        run: npx tsc --noEmit
-        # If you have existing TS errors you want to ignore initially, you can 
-        # uncomment the line below. Otherwise, it enforces strict type safety.
-        # continue-on-error: true
+      - name: Lint / Type check
+        run: npm run lint
 
-      - name: 🏗️ Build Application (Vite)
+      - name: Build web assets
         run: npm run build
-        # env:
-        #   VITE_API_URL: ${{ secrets.VITE_API_URL }}
 
-      - name: 📤 Upload Build Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: vite-production-build
-          # Vite typically outputs to 'dist'. Update to 'build' if your Vite config differs.
-          path: app_ios/dist/
-          retention-days: 14
+      - name: Sync Capacitor iOS project
+        run: npx cap sync ios
+
+      - name: Verify API base URL is configured
+        shell: bash
+        run: |
+          if [[ -z "${API_BASE_URL}" ]]; then
+            echo "API_BASE_URL is not defined in repository variables."
+            echo "Set it from Settings > Secrets and variables > Actions > Variables."
+            exit 1
+          fi
+          echo "API_BASE_URL is configured."
+
+      - name: API health check
+        shell: bash
+        run: |
+          STATUS=$(curl -sS -o /tmp/health_response.json -w "%{http_code}" "${API_BASE_URL}/health")
+          if [[ "${STATUS}" -lt 200 || "${STATUS}" -ge 400 ]]; then
+            echo "API health check failed with status ${STATUS}"
+            cat /tmp/health_response.json
+            exit 1
+          fi
+          echo "API health check passed with status ${STATUS}"
