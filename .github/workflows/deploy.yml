@@ -15,38 +15,41 @@ jobs:
       - name: ⬇️ Checkout repository
         uses: actions/checkout@v4
 
-      # ─── 2. Node.js ────────────────────────────────────────────────────────
+      # ─── 2. اطبع هيكل الملفات كاملاً ─────────────────────────────────────
+      - name: 🗂️ Show repo structure
+        run: |
+          echo "=== محتوى الـ Repository ==="
+          find . -not -path "*/node_modules/*" -not -path "*/.git/*" | sort
+
+      # ─── 3. Node.js ────────────────────────────────────────────────────────
       - name: 🟢 Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "20"
 
-      # ─── 3. اكتشاف مكان package.json تلقائياً ─────────────────────────────
+      # ─── 4. اكتشاف مكان package.json تلقائياً ─────────────────────────────
       - name: 📂 Detect project root
         run: |
-          if [ -f "app_ios/package.json" ]; then
-            echo "PROJECT_DIR=app_ios" >> $GITHUB_ENV
-            echo "✅ Found package.json in app_ios/"
-          elif [ -f "package.json" ]; then
-            echo "PROJECT_DIR=." >> $GITHUB_ENV
-            echo "✅ Found package.json in root"
-          else
-            echo "❌ package.json not found!"
-            find . -name "package.json" -not -path "*/node_modules/*"
+          PKG=$(find . -name "package.json" \
+            -not -path "*/node_modules/*" \
+            -not -path "*/.git/*" \
+            | head -1)
+
+          if [ -z "$PKG" ]; then
+            echo "❌ لا يوجد package.json في الـ repo!"
             exit 1
           fi
 
-      # ─── 4. Install dependencies ───────────────────────────────────────────
-      - name: 📦 Install dependencies
-        run: |
-          cd $PROJECT_DIR
-          npm install
+          DIR=$(dirname "$PKG")
+          echo "PROJECT_DIR=$DIR" >> $GITHUB_ENV
+          echo "✅ وجدنا package.json في: $DIR"
 
-      # ─── 5. Build web app ──────────────────────────────────────────────────
+      # ─── 5. Install & Build ────────────────────────────────────────────────
+      - name: 📦 Install dependencies
+        run: cd $PROJECT_DIR && npm install
+
       - name: 🔨 Build web app
-        run: |
-          cd $PROJECT_DIR
-          npm run build
+        run: cd $PROJECT_DIR && npm run build
 
       # ─── 6. Capacitor iOS ─────────────────────────────────────────────────
       - name: 📱 Add iOS platform
@@ -57,15 +60,11 @@ jobs:
           fi
 
       - name: 🔄 Sync Capacitor
-        run: |
-          cd $PROJECT_DIR
-          npx cap sync ios
+        run: cd $PROJECT_DIR && npx cap sync ios
 
       # ─── 7. CocoaPods ─────────────────────────────────────────────────────
       - name: 🦪 Install CocoaPods
-        run: |
-          cd $PROJECT_DIR/ios/App
-          pod install --repo-update
+        run: cd $PROJECT_DIR/ios/App && pod install --repo-update
 
       # ─── 8. Build بدون توقيع ──────────────────────────────────────────────
       - name: 🏗️ Archive app (no signing)
@@ -103,3 +102,23 @@ jobs:
       - name: ✅ Done
         if: success()
         run: echo "🎉 الـ IPA جاهز! حمّله من Actions → Artifacts"
+```
+
+---
+
+⚠️ **المشكلة الأساسية — تحتاج رفع ملفات المشروع على GitHub:**
+
+تأكد أن في الـ repo هذه الملفات:
+```
+repo/
+├── .github/workflows/deploy.yml
+└── app_ios/
+    ├── package.json       ← مهم جداً
+    ├── vite.config.ts
+    ├── capacitor.config.ts
+    ├── tsconfig.json
+    ├── index.html
+    └── src/
+        ├── App.tsx
+        ├── main.tsx
+        └── index.css
