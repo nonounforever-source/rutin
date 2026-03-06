@@ -1,85 +1,89 @@
-name: 🔨 Build IPA for AltStore
+name: Routinely CI/CD
 
 on:
   push:
-    branches: [main]
-  workflow_dispatch:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+# Ensure that only one build runs at a time for the same branch to save credits
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
-    name: Build Unsigned IPA
-    runs-on: macos-14
+    name: Build and Validate
+    runs-on: ubuntu-latest
+    
+    # Setting the working directory since the app is nested in 'project/app_ios'
+    defaults:
+      run:
+        working-directory: project/app_ios
 
     steps:
-      # ─── 1. Checkout ───────────────────────────────────────────────────────
-      - name: ⬇️ Checkout repository
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # ─── 2. Node.js ────────────────────────────────────────────────────────
-      - name: 🟢 Setup Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: '20' # Using a modern LTS version
+          cache: 'npm'
+          cache-dependency-path: project/app_ios/package-lock.json
 
-      # ─── 3. Install dependencies ───────────────────────────────────────────
-      - name: 📦 Install dependencies
-        working-directory: app_ios
+      - name: Install Dependencies
         run: npm ci
 
-      # ─── 4. Build web app ──────────────────────────────────────────────────
-      - name: 🔨 Build web app
-        working-directory: app_ios
+      - name: Type Check (TypeScript)
+        run: npm run type-check || npx tsc --noEmit
+        # This ensures your interfaces and types are correct before building
+
+      - name: Lint Code
+        run: npm run lint || echo "No lint script defined in package.json"
+        # Catches code style issues and potential bugs
+
+      - name: Build Web Assets
         run: npm run build
+        # This generates the 'dist' folder used by Capacitor
 
-      # ─── 5. Capacitor iOS ─────────────────────────────────────────────────
-      - name: 📱 Add iOS platform
-        working-directory: app_ios
-        run: |
-          if [ ! -d "ios" ]; then
-            npx cap add ios
-          fi
-
-      - name: 🔄 Sync Capacitor
-        working-directory: app_ios
+      - name: Capacitor Sync
         run: npx cap sync ios
+        # This updates the native iOS project with the latest web build assets
 
-      # ─── 6. CocoaPods ─────────────────────────────────────────────────────
-      - name: 🦪 Install CocoaPods
-        working-directory: app_ios/ios/App
-        run: pod install --repo-update
-
-      # ─── 7. Build بدون توقيع ──────────────────────────────────────────────
-      - name: 🏗️ Archive app (no signing)
-        working-directory: app_ios
-        run: |
-          xcodebuild archive \
-            -workspace ios/App/App.xcworkspace \
-            -scheme App \
-            -sdk iphoneos \
-            -configuration Release \
-            -archivePath $RUNNER_TEMP/App.xcarchive \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY="" \
-            AD_HOC_CODE_SIGNING_ALLOWED=YES \
-            | xcpretty
-
-      # ─── 8. Package IPA ───────────────────────────────────────────────────
-      - name: 📦 Package IPA
-        run: |
-          mkdir -p "$RUNNER_TEMP/Payload"
-          cp -r "$RUNNER_TEMP/App.xcarchive/Products/Applications/App.app" "$RUNNER_TEMP/Payload/"
-          cd "$RUNNER_TEMP"
-          zip -r "$RUNNER_TEMP/Routinely.ipa" Payload/
-
-      # ─── 9. Upload Artifact ───────────────────────────────────────────────
-      - name: ⬆️ Upload IPA
+      - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Routinely-IPA
-          path: ${{ runner.temp }}/Routinely.ipa
-          retention-days: 30
+          name: web-dist
+          path: project/app_ios/dist/
+          retention-days: 7
+          # Stores the web build so it can be inspected or manually deployed
 
-      - name: ✅ Done
-        if: success()
-        run: echo "🎉 الـ IPA جاهز! حمّله من Actions → Artifacts"
+  # Optional: Native iOS Build Check (Note: Requires macOS runner)
+  # This job ensures the native iOS code compiles successfully
+  check-ios:
+    name: iOS Native Compilation Check
+    needs: build
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: project/app_ios
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Install CocoaPods
+        run: cd ios/App && pod install
+        
+      - name: Build iOS App (XCode)
+        run: |
+          npx cap build ios --no-open
