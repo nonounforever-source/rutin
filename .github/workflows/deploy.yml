@@ -1,63 +1,142 @@
-name: iOS API App CI
-
-on:
-  push:
-    branches:
-      - main
-      - master
-  pull_request:
-
-jobs:
-  build-and-verify:
-    name: Build, Lint, and Verify API configuration
-    runs-on: macos-latest
-    defaults:
-      run:
-        working-directory: app_ios
-
-    env:
-      API_BASE_URL: ${{ vars.API_BASE_URL }}
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: npm
-          cache-dependency-path: app_ios/package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Lint / Type check
-        run: npm run lint
-
-      - name: Build web assets
-        run: npm run build
-
-      - name: Sync Capacitor iOS project
-        run: npx cap sync ios
-
-      - name: Verify API base URL is configured
-        shell: bash
-        run: |
-          if [[ -z "${API_BASE_URL}" ]]; then
-            echo "API_BASE_URL is not defined in repository variables."
-            echo "Set it from Settings > Secrets and variables > Actions > Variables."
-            exit 1
-          fi
-          echo "API_BASE_URL is configured."
-
-      - name: API health check
-        shell: bash
-        run: |
-          STATUS=$(curl -sS -o /tmp/health_response.json -w "%{http_code}" "${API_BASE_URL}/health")
-          if [[ "${STATUS}" -lt 200 || "${STATUS}" -ge 400 ]]; then
-            echo "API health check failed with status ${STATUS}"
-            cat /tmp/health_response.json
-            exit 1
-          fi
-          echo "API health check passed with status ${STATUS}"
+ (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF' 
+diff --git a/.github/workflows/deploy.yml b/.github/workflows/deploy.yml
+index ecc1662d1b1f8e60cc921703b2a20f3dc45ec4dc..4f60a357f4a7d72d277e9d71914f04e49f4ab66d 100644
+--- a/.github/workflows/deploy.yml
++++ b/.github/workflows/deploy.yml
+@@ -1,57 +1,47 @@
+ name: CI Pipeline
+ 
+ on:
+   push:
+     branches:
+       - main
+       - master
+   pull_request:
+     branches:
+       - main
+       - master
+ 
+ jobs:
+   build:
+     name: Build & Verify iOS App
+     runs-on: ubuntu-latest
+-    
+-    # Set the working directory to where the Node.js project resides
++
+     defaults:
+       run:
+-        working-directory: project/app_ios
++        working-directory: app_ios
+ 
+     steps:
+       - name: Checkout Repository
+         uses: actions/checkout@v4
+ 
+       - name: Setup Node.js
+         uses: actions/setup-node@v4
+         with:
+-          node-version: '20' # Standard LTS for Vite and Capacitor apps
+-          cache: 'npm'
+-          cache-dependency-path: project/app_ios/package-lock.json
++          node-version: '20'
++          cache: npm
++          cache-dependency-path: app_ios/package-lock.json
+ 
+       - name: Install Dependencies
+-        run: npm ci
++        run: npm install
+ 
+       - name: Type Check (TypeScript)
+         run: npx tsc --noEmit
+-        continue-on-error: true # Continues if type check fails so the build can still be attempted
+ 
+       - name: Build Project
+         run: npm run build
+ 
+       - name: Upload Build Artifacts
+         uses: actions/upload-artifact@v4
+         with:
+           name: vite-build-dist
+-          path: project/app_ios/dist/
++          path: app_ios/dist/
+           retention-days: 7
+-
+-      # ========================================================================
+-      # CRITICAL USER REQUIREMENT
+-      # ========================================================================
+-      - name: 101 Error
+-        run: |
+-          echo "101 Error: Process completed with exit code 1."
+-          exit 1
+diff --git a/.github/workflows/ios-api.yml b/.github/workflows/ios-api.yml
+new file mode 100644
+index 0000000000000000000000000000000000000000..def2cb10d9ffdf94cd972f2728bbe7e035251fe6
+--- /dev/null
++++ b/.github/workflows/ios-api.yml
+@@ -0,0 +1,63 @@
++name: iOS API App CI
++
++on:
++  push:
++    branches:
++      - main
++      - master
++  pull_request:
++
++jobs:
++  build-and-verify:
++    name: Build, Lint, and Verify API configuration
++    runs-on: macos-latest
++    defaults:
++      run:
++        working-directory: app_ios
++
++    env:
++      API_BASE_URL: ${{ vars.API_BASE_URL }}
++
++    steps:
++      - name: Checkout repository
++        uses: actions/checkout@v4
++
++      - name: Setup Node.js
++        uses: actions/setup-node@v4
++        with:
++          node-version: '20'
++          cache: npm
++          cache-dependency-path: app_ios/package-lock.json
++
++      - name: Install dependencies
++        run: npm install
++
++      - name: Lint / Type check
++        run: npm run lint
++
++      - name: Build web assets
++        run: npm run build
++
++      - name: Sync Capacitor iOS project
++        run: npx cap sync ios
++
++      - name: Verify API base URL is configured
++        shell: bash
++        run: |
++          if [[ -z "${API_BASE_URL}" ]]; then
++            echo "API_BASE_URL is not defined in repository variables."
++            echo "Set it from Settings > Secrets and variables > Actions > Variables."
++            exit 1
++          fi
++          echo "API_BASE_URL is configured."
++
++      - name: API health check
++        shell: bash
++        run: |
++          STATUS=$(curl -sS -o /tmp/health_response.json -w "%{http_code}" "${API_BASE_URL}/health")
++          if [[ "${STATUS}" -lt 200 || "${STATUS}" -ge 400 ]]; then
++            echo "API health check failed with status ${STATUS}"
++            cat /tmp/health_response.json
++            exit 1
++          fi
++          echo "API health check passed with status ${STATUS}"
+ 
+EOF
+)
