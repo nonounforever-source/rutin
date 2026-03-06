@@ -16,7 +16,7 @@ function AppContent() {
   if (settings.isFirstTime) {
     return <OnboardingPage />;
   }
-
+export default function App() {
   return (
     <div
       className="bg-zinc-200 dark:bg-zinc-900 flex justify-center"
