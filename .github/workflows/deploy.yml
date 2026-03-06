@@ -11,47 +11,34 @@ jobs:
     runs-on: macos-14
 
     steps:
-      # ─── 1. Checkout ───────────────────────────────────────────────────────
       - name: ⬇️ Checkout repository
         uses: actions/checkout@v4
 
-      # ─── 2. اطبع هيكل الملفات كاملاً ─────────────────────────────────────
       - name: 🗂️ Show repo structure
-        run: |
-          echo "=== محتوى الـ Repository ==="
-          find . -not -path "*/node_modules/*" -not -path "*/.git/*" | sort
+        run: find . -not -path "*/node_modules/*" -not -path "*/.git/*" | sort
 
-      # ─── 3. Node.js ────────────────────────────────────────────────────────
       - name: 🟢 Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "20"
 
-      # ─── 4. اكتشاف مكان package.json تلقائياً ─────────────────────────────
       - name: 📂 Detect project root
         run: |
-          PKG=$(find . -name "package.json" \
-            -not -path "*/node_modules/*" \
-            -not -path "*/.git/*" \
-            | head -1)
-
+          PKG=$(find . -name "package.json" -not -path "*/node_modules/*" -not -path "*/.git/*" | head -1)
           if [ -z "$PKG" ]; then
-            echo "❌ لا يوجد package.json في الـ repo!"
+            echo "❌ لا يوجد package.json"
             exit 1
           fi
-
           DIR=$(dirname "$PKG")
           echo "PROJECT_DIR=$DIR" >> $GITHUB_ENV
-          echo "✅ وجدنا package.json في: $DIR"
+          echo "✅ package.json في: $DIR"
 
-      # ─── 5. Install & Build ────────────────────────────────────────────────
       - name: 📦 Install dependencies
         run: cd $PROJECT_DIR && npm install
 
       - name: 🔨 Build web app
         run: cd $PROJECT_DIR && npm run build
 
-      # ─── 6. Capacitor iOS ─────────────────────────────────────────────────
       - name: 📱 Add iOS platform
         run: |
           cd $PROJECT_DIR
@@ -62,12 +49,10 @@ jobs:
       - name: 🔄 Sync Capacitor
         run: cd $PROJECT_DIR && npx cap sync ios
 
-      # ─── 7. CocoaPods ─────────────────────────────────────────────────────
       - name: 🦪 Install CocoaPods
         run: cd $PROJECT_DIR/ios/App && pod install --repo-update
 
-      # ─── 8. Build بدون توقيع ──────────────────────────────────────────────
-      - name: 🏗️ Archive app (no signing)
+      - name: 🏗️ Archive app
         run: |
           cd $PROJECT_DIR
           xcodebuild archive \
@@ -82,40 +67,35 @@ jobs:
             AD_HOC_CODE_SIGNING_ALLOWED=YES \
             | xcpretty
 
-      # ─── 9. Package IPA ───────────────────────────────────────────────────
       - name: 📦 Package IPA
         run: |
           mkdir -p "$RUNNER_TEMP/Payload"
-          cp -r "$RUNNER_TEMP/App.xcarchive/Products/Applications/App.app" \
-                "$RUNNER_TEMP/Payload/"
+          cp -r "$RUNNER_TEMP/App.xcarchive/Products/Applications/App.app" "$RUNNER_TEMP/Payload/"
           cd "$RUNNER_TEMP"
           zip -r "$RUNNER_TEMP/Routinely.ipa" Payload/
 
-      # ─── 10. Upload Artifact ──────────────────────────────────────────────
       - name: ⬆️ Upload IPA
         uses: actions/upload-artifact@v4
         with:
           name: Routinely-IPA
-          path: ${{ runner.temp }}/Routinely.ipa
+          path: "${{ runner.temp }}/Routinely.ipa"
           retention-days: 30
 
       - name: ✅ Done
         if: success()
-        run: echo "🎉 الـ IPA جاهز! حمّله من Actions → Artifacts"
+        run: echo "تم بنجاح"
 ```
 
 ---
 
-⚠️ **المشكلة الأساسية — تحتاج رفع ملفات المشروع على GitHub:**
-
-تأكد أن في الـ repo هذه الملفات:
+⚠️ **تذكير مهم** — تأكد أن في الـ repo هذه الملفات وإلا لن يعمل أبداً:
 ```
 repo/
 ├── .github/workflows/deploy.yml
 └── app_ios/
-    ├── package.json       ← مهم جداً
-    ├── vite.config.ts
+    ├── package.json
     ├── capacitor.config.ts
+    ├── vite.config.ts
     ├── tsconfig.json
     ├── index.html
     └── src/
