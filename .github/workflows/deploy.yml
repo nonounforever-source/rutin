@@ -1,53 +1,64 @@
-name: CI/CD Pipeline
+name: Build iOS IPA
 
 on:
-  push:
-    branches: [ "main", "master" ]
-  pull_request:
-    branches: [ "main", "master" ]
-  # Allows you to run this workflow manually from the Actions tab
-  workflow_dispatch:
+push:
+branches:
+- main
+workflow_dispatch:
 
 jobs:
-  build-and-test:
-    name: Build Web Assets
-    # Using ubuntu-latest as building Vite web assets doesn't require macOS.
-    # (Note: If you add an xcodebuild step later for iOS, change this to macos-latest)
-    runs-on: ubuntu-latest
+build:
+runs-on: macos-latest
 
-    # CRITICAL: Fixes the "Exit Code 1" issue by running all commands in the app_ios folder
-    defaults:
-      run:
-        working-directory: ./app_ios
+```
+steps:
+  - name: Checkout repository
+    uses: actions/checkout@v4
 
-    steps:
-      - name: 🛒 Checkout Repository
-        uses: actions/checkout@v4
+  - name: Setup Node
+    uses: actions/setup-node@v4
+    with:
+      node-version: 20
 
-      - name: ⚙️ Setup Node.js 20
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-          # CRITICAL: Points the caching mechanism to the nested lockfile
-          cache-dependency-path: './app_ios/package-lock.json'
+  - name: Install dependencies
+    run: npm install
 
-      - name: 📦 Install Dependencies
-        # npm ci is faster and safer for CI/CD environments than npm install.
-        run: npm ci
+  - name: Build project
+    run: npm run build
 
-      - name: 🛠️ Build Application (Vite/React)
-        # This will run the `build` script in your package.json (usually compiles TS and builds via Vite)
-        run: npm run build
+  - name: Install Capacitor CLI
+    run: npm install -g @capacitor/cli
 
-      # OPTIONAL BUT RECOMMENDED: Upload the compiled 'dist' folder as a build artifact
-      - name: 📤 Upload Build Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: web-dist
-          path: ./app_ios/dist/
-          retention-days: 7
+  - name: Add iOS
+    run: npx cap add ios || true
 
-      # OPTIONAL: If you want Capacitor to sync the built assets to your iOS directory
-      # - name: 🔄 Sync Capacitor iOS
-      #   run: npx cap sync ios
+  - name: Sync iOS
+    run: npx cap sync ios
+
+  - name: Install CocoaPods
+    run: |
+      cd ios/App
+      pod install
+
+  - name: Build archive
+    run: |
+      xcodebuild -workspace ios/App/App.xcworkspace \
+      -scheme App \
+      -configuration Release \
+      -sdk iphoneos \
+      -archivePath $PWD/App.xcarchive \
+      archive \
+      CODE_SIGNING_ALLOWED=NO
+
+  - name: Create IPA
+    run: |
+      mkdir Payload
+      cp -r App.xcarchive/Products/Applications/*.app Payload/
+      zip -r app.ipa Payload
+
+  - name: Upload IPA
+    uses: actions/upload-artifact@v4
+    with:
+      name: ios-app
+      path: app.ipa
+```
