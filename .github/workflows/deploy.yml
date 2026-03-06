@@ -1,4 +1,4 @@
-name: 🔨 Build Unsigned IPA
+name: Build IPA
 
 on:
   push:
@@ -7,52 +7,51 @@ on:
 
 jobs:
   build:
-    name: Build Unsigned IPA
     runs-on: macos-14
 
     steps:
-      - name: ⬇️ Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: 🗂️ Show repo structure
+      - name: Show files
         run: find . -not -path "*/node_modules/*" -not -path "*/.git/*" | sort
 
-      - name: 🟢 Setup Node.js
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: "20"
 
-      - name: 📂 Detect project root
+      - name: Find package.json
         run: |
           PKG=$(find . -name "package.json" -not -path "*/node_modules/*" -not -path "*/.git/*" | head -1)
           if [ -z "$PKG" ]; then
-            echo "❌ لا يوجد package.json"
+            echo "ERROR: package.json not found"
             exit 1
           fi
           DIR=$(dirname "$PKG")
           echo "PROJECT_DIR=$DIR" >> $GITHUB_ENV
-          echo "✅ package.json في: $DIR"
+          echo "Found in: $DIR"
 
-      - name: 📦 Install dependencies
+      - name: Install dependencies
         run: cd $PROJECT_DIR && npm install
 
-      - name: 🔨 Build web app
+      - name: Build
         run: cd $PROJECT_DIR && npm run build
 
-      - name: 📱 Add iOS platform
+      - name: Add iOS platform
         run: |
           cd $PROJECT_DIR
           if [ ! -d "ios" ]; then
             npx cap add ios
           fi
 
-      - name: 🔄 Sync Capacitor
+      - name: Sync Capacitor
         run: cd $PROJECT_DIR && npx cap sync ios
 
-      - name: 🦪 Install CocoaPods
+      - name: Install CocoaPods
         run: cd $PROJECT_DIR/ios/App && pod install --repo-update
 
-      - name: 🏗️ Archive app
+      - name: Archive
         run: |
           cd $PROJECT_DIR
           xcodebuild archive \
@@ -67,38 +66,16 @@ jobs:
             AD_HOC_CODE_SIGNING_ALLOWED=YES \
             | xcpretty
 
-      - name: 📦 Package IPA
+      - name: Package IPA
         run: |
-          mkdir -p "$RUNNER_TEMP/Payload"
-          cp -r "$RUNNER_TEMP/App.xcarchive/Products/Applications/App.app" "$RUNNER_TEMP/Payload/"
-          cd "$RUNNER_TEMP"
-          zip -r "$RUNNER_TEMP/Routinely.ipa" Payload/
+          mkdir -p $RUNNER_TEMP/Payload
+          cp -r $RUNNER_TEMP/App.xcarchive/Products/Applications/App.app $RUNNER_TEMP/Payload/
+          cd $RUNNER_TEMP
+          zip -r $RUNNER_TEMP/Routinely.ipa Payload/
 
-      - name: ⬆️ Upload IPA
+      - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
           name: Routinely-IPA
-          path: "${{ runner.temp }}/Routinely.ipa"
+          path: ${{ runner.temp }}/Routinely.ipa
           retention-days: 30
-
-      - name: ✅ Done
-        if: success()
-        run: echo "تم بنجاح"
-```
-
----
-
-⚠️ **تذكير مهم** — تأكد أن في الـ repo هذه الملفات وإلا لن يعمل أبداً:
-```
-repo/
-├── .github/workflows/deploy.yml
-└── app_ios/
-    ├── package.json
-    ├── capacitor.config.ts
-    ├── vite.config.ts
-    ├── tsconfig.json
-    ├── index.html
-    └── src/
-        ├── App.tsx
-        ├── main.tsx
-        └── index.css
