@@ -21,37 +21,56 @@ jobs:
         with:
           node-version: "20"
 
-      # ─── 3. Install dependencies ───────────────────────────────────────────
-      - name: 📦 Install dependencies
-        working-directory: app_ios
-        run: npm install
-
-      # ─── 4. Build web app ──────────────────────────────────────────────────
-      - name: 🔨 Build web app
-        working-directory: app_ios
-        run: npm run build
-
-      # ─── 5. Capacitor iOS ─────────────────────────────────────────────────
-      - name: 📱 Add iOS platform
-        working-directory: app_ios
+      # ─── 3. اكتشاف مكان package.json تلقائياً ─────────────────────────────
+      - name: 📂 Detect project root
         run: |
+          if [ -f "app_ios/package.json" ]; then
+            echo "PROJECT_DIR=app_ios" >> $GITHUB_ENV
+            echo "✅ Found package.json in app_ios/"
+          elif [ -f "package.json" ]; then
+            echo "PROJECT_DIR=." >> $GITHUB_ENV
+            echo "✅ Found package.json in root"
+          else
+            echo "❌ package.json not found!"
+            find . -name "package.json" -not -path "*/node_modules/*"
+            exit 1
+          fi
+
+      # ─── 4. Install dependencies ───────────────────────────────────────────
+      - name: 📦 Install dependencies
+        run: |
+          cd $PROJECT_DIR
+          npm install
+
+      # ─── 5. Build web app ──────────────────────────────────────────────────
+      - name: 🔨 Build web app
+        run: |
+          cd $PROJECT_DIR
+          npm run build
+
+      # ─── 6. Capacitor iOS ─────────────────────────────────────────────────
+      - name: 📱 Add iOS platform
+        run: |
+          cd $PROJECT_DIR
           if [ ! -d "ios" ]; then
             npx cap add ios
           fi
 
       - name: 🔄 Sync Capacitor
-        working-directory: app_ios
-        run: npx cap sync ios
-
-      # ─── 6. CocoaPods ─────────────────────────────────────────────────────
-      - name: 🦪 Install CocoaPods
-        working-directory: app_ios/ios/App
-        run: pod install --repo-update
-
-      # ─── 7. Build بدون توقيع ──────────────────────────────────────────────
-      - name: 🏗️ Archive app (no signing)
-        working-directory: app_ios
         run: |
+          cd $PROJECT_DIR
+          npx cap sync ios
+
+      # ─── 7. CocoaPods ─────────────────────────────────────────────────────
+      - name: 🦪 Install CocoaPods
+        run: |
+          cd $PROJECT_DIR/ios/App
+          pod install --repo-update
+
+      # ─── 8. Build بدون توقيع ──────────────────────────────────────────────
+      - name: 🏗️ Archive app (no signing)
+        run: |
+          cd $PROJECT_DIR
           xcodebuild archive \
             -workspace ios/App/App.xcworkspace \
             -scheme App \
@@ -64,15 +83,16 @@ jobs:
             AD_HOC_CODE_SIGNING_ALLOWED=YES \
             | xcpretty
 
-      # ─── 8. Package IPA ───────────────────────────────────────────────────
+      # ─── 9. Package IPA ───────────────────────────────────────────────────
       - name: 📦 Package IPA
         run: |
           mkdir -p "$RUNNER_TEMP/Payload"
-          cp -r "$RUNNER_TEMP/App.xcarchive/Products/Applications/App.app" "$RUNNER_TEMP/Payload/"
+          cp -r "$RUNNER_TEMP/App.xcarchive/Products/Applications/App.app" \
+                "$RUNNER_TEMP/Payload/"
           cd "$RUNNER_TEMP"
           zip -r "$RUNNER_TEMP/Routinely.ipa" Payload/
 
-      # ─── 9. Upload Artifact ───────────────────────────────────────────────
+      # ─── 10. Upload Artifact ──────────────────────────────────────────────
       - name: ⬆️ Upload IPA
         uses: actions/upload-artifact@v4
         with:
