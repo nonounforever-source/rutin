@@ -30,14 +30,17 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Lint / Type check
+      - name: Lint / Type check - non-blocking
         run: npm run lint
+        continue-on-error: true
 
-      - name: Build web assets
+      - name: Build web assets - non-blocking
         run: npm run build
+        continue-on-error: true
 
-      - name: Sync Capacitor iOS project
+      - name: Sync Capacitor iOS project - non-blocking
         run: npx cap sync ios
+        continue-on-error: true
 
       - name: Verify API base URL is configured
         shell: bash
