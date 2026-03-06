@@ -1,10 +1,10 @@
-import { useEffect, useRef } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { type ReactNode, useEffect, useRef } from "react";
+import { AnimatePresence, motion } from "motion/react";
 
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
-  children: React.ReactNode;
+  children: ReactNode;
   /** إذا true يُغلق المودال عند الضغط على الخلفية */
   closeOnOverlay?: boolean;
 }
