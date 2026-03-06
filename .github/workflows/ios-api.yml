@@ -1,0 +1,61 @@
+name: iOS API App CI
+
+'on':
+  push:
+    branches: [main, master]
+  pull_request: {}
+
+jobs:
+  build-and-verify:
+    name: Build, Lint, and Verify API configuration
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: app_ios
+
+    env:
+      API_BASE_URL: ${{ vars.API_BASE_URL }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: app_ios/package-lock.json
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Lint / Type check
+        run: npm run lint
+
+      - name: Build web assets
+        run: npm run build
+
+      - name: Sync Capacitor iOS project
+        run: npx cap sync ios
+
+      - name: Verify API base URL is configured
+        shell: bash
+        run: |
+          if [[ -z "${API_BASE_URL}" ]]; then
+            echo "API_BASE_URL is not defined in repository variables."
+            echo "Set it from Settings > Secrets and variables > Actions > Variables."
+            exit 1
+          fi
+          echo "API_BASE_URL is configured."
+
+      - name: API health check
+        shell: bash
+        run: |
+          STATUS=$(curl -sS -o /tmp/health_response.json -w "%{http_code}" "${API_BASE_URL}/health")
+          if [[ "${STATUS}" -lt 200 || "${STATUS}" -ge 400 ]]; then
+            echo "API health check failed with status ${STATUS}"
+            cat /tmp/health_response.json
+            exit 1
+          fi
+          echo "API health check passed with status ${STATUS}"
