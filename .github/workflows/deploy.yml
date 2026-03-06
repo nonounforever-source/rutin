@@ -1,4 +1,4 @@
-name: Build IPA
+name: 🔨 Build IPA for AltStore
 
 on:
   push:
@@ -7,53 +7,51 @@ on:
 
 jobs:
   build:
+    name: Build Unsigned IPA
     runs-on: macos-14
 
     steps:
-      - name: Checkout
+      # ─── 1. Checkout ───────────────────────────────────────────────────────
+      - name: ⬇️ Checkout repository
         uses: actions/checkout@v4
 
-      - name: Show files
-        run: find . -not -path "*/node_modules/*" -not -path "*/.git/*" | sort
-
-      - name: Setup Node
+      # ─── 2. Node.js ────────────────────────────────────────────────────────
+      - name: 🟢 Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "20"
 
-      - name: Find package.json
+      # ─── 3. Install dependencies ───────────────────────────────────────────
+      - name: 📦 Install dependencies
+        working-directory: app_ios
+        run: npm ci
+
+      # ─── 4. Build web app ──────────────────────────────────────────────────
+      - name: 🔨 Build web app
+        working-directory: app_ios
+        run: npm run build
+
+      # ─── 5. Capacitor iOS ─────────────────────────────────────────────────
+      - name: 📱 Add iOS platform
+        working-directory: app_ios
         run: |
-          PKG=$(find . -name "package.json" -not -path "*/node_modules/*" -not -path "*/.git/*" | head -1)
-          if [ -z "$PKG" ]; then
-            echo "ERROR: package.json not found"
-            exit 1
-          fi
-          DIR=$(dirname "$PKG")
-          echo "PROJECT_DIR=$DIR" >> $GITHUB_ENV
-          echo "Found in: $DIR"
-
-      - name: Install dependencies
-        run: cd $PROJECT_DIR && npm install
-
-      - name: Build
-        run: cd $PROJECT_DIR && npm run build
-
-      - name: Add iOS platform
-        run: |
-          cd $PROJECT_DIR
           if [ ! -d "ios" ]; then
             npx cap add ios
           fi
 
-      - name: Sync Capacitor
-        run: cd $PROJECT_DIR && npx cap sync ios
+      - name: 🔄 Sync Capacitor
+        working-directory: app_ios
+        run: npx cap sync ios
 
-      - name: Install CocoaPods
-        run: cd $PROJECT_DIR/ios/App && pod install --repo-update
+      # ─── 6. CocoaPods ─────────────────────────────────────────────────────
+      - name: 🦪 Install CocoaPods
+        working-directory: app_ios/ios/App
+        run: pod install --repo-update
 
-      - name: Archive
+      # ─── 7. Build بدون توقيع ──────────────────────────────────────────────
+      - name: 🏗️ Archive app (no signing)
+        working-directory: app_ios
         run: |
-          cd $PROJECT_DIR
           xcodebuild archive \
             -workspace ios/App/App.xcworkspace \
             -scheme App \
@@ -66,16 +64,22 @@ jobs:
             AD_HOC_CODE_SIGNING_ALLOWED=YES \
             | xcpretty
 
-      - name: Package IPA
+      # ─── 8. Package IPA ───────────────────────────────────────────────────
+      - name: 📦 Package IPA
         run: |
-          mkdir -p $RUNNER_TEMP/Payload
-          cp -r $RUNNER_TEMP/App.xcarchive/Products/Applications/App.app $RUNNER_TEMP/Payload/
-          cd $RUNNER_TEMP
-          zip -r $RUNNER_TEMP/Routinely.ipa Payload/
+          mkdir -p "$RUNNER_TEMP/Payload"
+          cp -r "$RUNNER_TEMP/App.xcarchive/Products/Applications/App.app" "$RUNNER_TEMP/Payload/"
+          cd "$RUNNER_TEMP"
+          zip -r "$RUNNER_TEMP/Routinely.ipa" Payload/
 
-      - name: Upload IPA
+      # ─── 9. Upload Artifact ───────────────────────────────────────────────
+      - name: ⬆️ Upload IPA
         uses: actions/upload-artifact@v4
         with:
           name: Routinely-IPA
           path: ${{ runner.temp }}/Routinely.ipa
           retention-days: 30
+
+      - name: ✅ Done
+        if: success()
+        run: echo "🎉 الـ IPA جاهز! حمّله من Actions → Artifacts"
