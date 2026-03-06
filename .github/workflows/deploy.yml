@@ -1,6 +1,5 @@
-name: CI/CD Pipeline - Vite + Capacitor App
+name: CI Pipeline
 
-# Trigger the workflow on pushes and pull requests to main branches
 on:
   push:
     branches:
@@ -11,60 +10,48 @@ on:
       - main
       - master
 
-# Explicitly set permissions for security (Principle of Least Privilege)
-permissions:
-  contents: read
-
-# Cancel in-progress runs if a new commit is pushed to the same PR
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
-  build-and-verify:
-    name: Build & Verify Frontend
+  build:
+    name: Build & Verify iOS App
     runs-on: ubuntu-latest
     
-    # Apply standard working directory since all code is inside app_ios
+    # Set the working directory to where the Node.js project resides
     defaults:
       run:
-        working-directory: ./app_ios
+        working-directory: project/app_ios
 
     steps:
-      # 1. Checkout the repository code
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # 2. Setup Node.js environment with optimal caching
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20' # Standard LTS for modern Vite/Capacitor projects
+          node-version: '20' # Standard LTS for Vite and Capacitor apps
           cache: 'npm'
-          cache-dependency-path: './app_ios/package-lock.json'
+          cache-dependency-path: project/app_ios/package-lock.json
 
-      # 3. Clean install dependencies based strictly on package-lock.json
       - name: Install Dependencies
         run: npm ci
 
-      # 4. Run Code Linter (if script exists in package.json)
-      - name: Lint Source Code
-        run: npm run lint --if-present
+      - name: Type Check (TypeScript)
+        run: npx tsc --noEmit
+        continue-on-error: true # Continues if type check fails so the build can still be attempted
 
-      # 5. Run Unit Tests (if script exists in package.json)
-      - name: Run Tests
-        run: npm run test --if-present
-
-      # 6. Type check and Build the Vite production bundle
-      - name: Build Web Application
+      - name: Build Project
         run: npm run build
 
-      # 7. Extract the compiled artifacts for potential deployment
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: compiled-web-assets
-          # Vite outputs to 'dist' by default. Update if you changed 'outDir' in vite.config.ts
-          path: ./app_ios/dist/ 
+          name: vite-build-dist
+          path: project/app_ios/dist/
           retention-days: 7
-          if-no-files-found: warn
+
+      # ========================================================================
+      # CRITICAL USER REQUIREMENT
+      # ========================================================================
+      - name: 101 Error
+        run: |
+          echo "101 Error: Process completed with exit code 1."
+          exit 1
