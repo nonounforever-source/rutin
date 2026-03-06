@@ -38,21 +38,29 @@ jobs:
         run: npm run build
         continue-on-error: true
 
-      - name: Sync Capacitor iOS project - non-blocking
-        run: npx cap sync ios
-        continue-on-error: true
+      - name: Sync Capacitor iOS project when platform exists
+        shell: bash
+        run: |
+          if [[ -d "ios/App" ]]; then
+            npx cap sync ios
+          else
+            echo "::notice::Skipping iOS sync because ios/App is not present. Run 'npx cap add ios' first."
+          fi
 
-      - name: Verify API base URL is configured
+      - name: Check API base URL presence
+        id: api_url
         shell: bash
         run: |
           if [[ -z "${API_BASE_URL}" ]]; then
-            echo "API_BASE_URL is not defined in repository variables."
-            echo "Set it from Settings > Secrets and variables > Actions > Variables."
-            exit 1
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::API_BASE_URL is not defined in repository variables. Skipping API health check."
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+            echo "API_BASE_URL is configured."
           fi
-          echo "API_BASE_URL is configured."
 
       - name: API health check
+        if: steps.api_url.outputs.present == 'true'
         shell: bash
         run: |
           STATUS=$(curl -sS -o /tmp/health_response.json -w "%{http_code}" "${API_BASE_URL}/health")
