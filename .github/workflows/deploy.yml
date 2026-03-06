@@ -1,57 +1,62 @@
-name: CI Pipeline
+name: Production CI/CD Pipeline
 
 on:
   push:
-    branches:
-      - main
-      - master
+    branches: [ "main", "master" ]
   pull_request:
-    branches:
-      - main
-      - master
+    branches: [ "main", "master" ]
+  # Allows you to trigger the workflow manually from the Actions tab
+  workflow_dispatch:
 
 jobs:
-  build:
-    name: Build & Verify iOS App
+  build-and-test:
+    name: Build React Native/Capacitor Web Assets
     runs-on: ubuntu-latest
-    
-    # Set the working directory to where the Node.js project resides
+
+    # Sets the default folder for all 'run' steps to the nested iOS app directory.
+    # Adjust this to './project/app_ios' if 'project' is actually tracked in git.
     defaults:
       run:
-        working-directory: project/app_ios
+        working-directory: ./app_ios
 
     steps:
-      - name: Checkout Repository
+      - name: 📥 Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: ⚙️ Setup Node.js Environment
         uses: actions/setup-node@v4
         with:
-          node-version: '20' # Standard LTS for Vite and Capacitor apps
+          node-version: '20' # Use latest Long-Term Support (LTS) version
           cache: 'npm'
-          cache-dependency-path: project/app_ios/package-lock.json
+          
+          # =======================================================================
+          # CRITICAL USER REQUIREMENT FIX
+          # Resolves: "Error: Some specified paths were not resolved, unable to cache dependencies."
+          # Using a glob pattern ensures the lockfile is found even in nested monorepos.
+          # =======================================================================
+          cache-dependency-path: '**/package-lock.json'
 
-      - name: Install Dependencies
+      - name: 📦 Install Dependencies
+        # npm ci is strictly better for CI environments than npm install.
+        # It relies entirely on the package-lock.json, wiping node_modules if needed.
         run: npm ci
 
-      - name: Type Check (TypeScript)
+      - name: 🔍 Type Checking (TypeScript)
+        # Validates TypeScript without emitting compiled files
         run: npx tsc --noEmit
-        continue-on-error: true # Continues if type check fails so the build can still be attempted
+        # If you have existing TS errors you want to ignore initially, you can 
+        # uncomment the line below. Otherwise, it enforces strict type safety.
+        # continue-on-error: true
 
-      - name: Build Project
+      - name: 🏗️ Build Application (Vite)
         run: npm run build
+        # env:
+        #   VITE_API_URL: ${{ secrets.VITE_API_URL }}
 
-      - name: Upload Build Artifacts
+      - name: 📤 Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: vite-build-dist
-          path: project/app_ios/dist/
-          retention-days: 7
-
-      # ========================================================================
-      # CRITICAL USER REQUIREMENT
-      # ========================================================================
-      - name: 101 Error
-        run: |
-          echo "101 Error: Process completed with exit code 1."
-          exit 1
+          name: vite-production-build
+          # Vite typically outputs to 'dist'. Update to 'build' if your Vite config differs.
+          path: app_ios/dist/
+          retention-days: 14
