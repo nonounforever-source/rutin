@@ -11,8 +11,7 @@ const config: CapacitorConfig = {
       overlaysWebView: true,
     },
     Keyboard: {
-      resize: 'body',
-      resizeOnFullScreen: true,
+                  resizeOnFullScreen: true,
     },
     SplashScreen: {
       launchShowDuration: 0,
