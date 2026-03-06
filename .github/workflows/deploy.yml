@@ -1,20 +1,17 @@
-name: iOS API App CI
+name: iOS API Workflow
 
 on:
   push:
-    branches: [main, master]
+    branches: ["**"]
   pull_request:
+    branches: ["**"]
 
 jobs:
-  build-and-verify:
-    name: Build, Verify iOS, and Check API
-    runs-on: macos-latest
+  validate-ios-api:
+    runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: app_ios
-
-    env:
-      API_BASE_URL: ${{ vars.API_BASE_URL }}
 
     steps:
       - name: Checkout repository
@@ -23,43 +20,15 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: 20
           cache: npm
           cache-dependency-path: app_ios/package-lock.json
 
       - name: Install dependencies
-        run: npm install
+        run: npm install --no-audit --no-fund
 
-      - name: Lint / Type check (non-blocking)
+      - name: Type check
         run: npm run lint
-        continue-on-error: true
 
-      - name: Build web assets (non-blocking)
+      - name: Build
         run: npm run build
-        continue-on-error: true
-
-      - name: Sync Capacitor iOS project (if exists)
-        shell: bash
-        run: |
-          if [[ -d "ios/App" ]]; then
-            npx cap sync ios
-          else
-            echo "::notice::Skipping iOS sync because ios/App is not present."
-          fi
-
-      - name: API health check (optional)
-        shell: bash
-        run: |
-          if [[ -z "${API_BASE_URL}" ]]; then
-            echo "::notice::API_BASE_URL is not set. Skipping API health check."
-            exit 0
-          fi
-
-          STATUS=$(curl -sS -o /tmp/health_response.json -w "%{http_code}" "${API_BASE_URL}/health")
-          if [[ "${STATUS}" -lt 200 || "${STATUS}" -ge 400 ]]; then
-            echo "API health check failed with status ${STATUS}"
-            cat /tmp/health_response.json
-            exit 1
-          fi
-
-          echo "API health check passed with status ${STATUS}"
